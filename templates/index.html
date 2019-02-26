@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <script src="http://d3js.org/d3.v4.min.js"></script>
+        <link rel="stylesheet" href="{{ url_for('static', filename='dist/bundle.css') }}">
+        <style>
+                .line {
+                    fill: none;
+                    stroke: black;
+                    stroke-width: 3;
+                }
+    
+                body { font: 12px Arial;}
+                path {
+                    stroke: blueviolet;
+                    stroke-width: 2;
+                    fill: none;
+                }
+                .axis path, .axis line {
+                    fill: none;
+                    stroke: black;
+                    stroke-width: 1;
+                    shape-rendering: crispEdges;
+                }
+    
+                .tick line{
+                    opacity: 0.2;
+                }
+    
+                .zoom {
+                    cursor: move;
+                    fill: none;
+                    pointer-events: all;
+                }             
+    
+            </style>
+    </head>
+     <body> 
+
+        <div id="graphContainer">
+            <button id="resetBtn">Reset</button>
+            <svg id="waveGraph" height="500" style="width:100%"></svg>
+            <script src="{{ url_for('static', filename='src/index.js') }}"></script>
+        </div>
+    </body>
+</html>
