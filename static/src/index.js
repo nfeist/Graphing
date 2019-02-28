@@ -31,9 +31,7 @@ const graph = (graphData) => {
   width = 960;
   w = width - margin.left - margin.right;
   h = +waveGraph.attr("height") - margin.top - margin.bottom;
-  
-  var parseDate = d3.timeParse("%m/%d/%Y %H:%M");
-  
+    
   // set range to be as width and high as graph. 
   xScale = d3.scaleLinear().range([0,w]);
   yScale = d3.scaleLinear().range([h,0]);
@@ -77,24 +75,24 @@ const graph = (graphData) => {
       // to get the domain lets loop though and add all values to the data.
       data.forEach(function(d) {
           d.yValue = +d.yValue;
-          d.xValue = parseDate(d.xValue);
+          d.xValue = +d.xValue;
       });
       // set domain to be max and mins of values.
       xScale.domain([d3.min(data,(d)=> {
-          return Math.min(d.yValue);
+          return Math.min(d.xValue);
       }),
       d3.max(data, (d) => {
-          return Math.max(d.yValue);
-      })
+          return Math.max(d.xValue)+ 1;
+        })
       ]);
       yScale.domain([d3.min(graphData, (d) => {
           // take the lower of the lower value
-          return Math.min(d.xValue) - 1;
+          return Math.min(d.yValue) - 1;
       }),
       d3.max(graphData, (d) => {
           // take the higher of the higher value
-          return Math.max(d.xValue) + 1;
-      })
+          return Math.max(d.yValue) + 1;
+        })
       ]);
 
 
@@ -110,23 +108,23 @@ const graph = (graphData) => {
 
       // add y axis 
       appendedYAxis = mainG.append('g')
-      .attr('class', 'axis axis--y')
-      .call(yAxis);
+        .attr('class', 'axis axis--y')
+        .call(yAxis);
 
       // add x axis
       appendedXAxis = mainG.append('g')
-      .attr('class', 'axis axis--x')
-      .attr("transform", "translate(0," + h + ")")
-      .call(xAxis);
+        .attr('class', 'axis axis--x')
+        .attr("transform", "translate(0," + h + ")")
+        .call(xAxis);
 
 
       waveGraph.append("g")
-      .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
-      .append("rect")
-      .attr("class", "zoom")
-      .attr("width", w)
-      .attr("height", h)
-      .call(zoom);
+        .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
+        .append("rect")
+        .attr("class", "zoom")
+        .attr("width", w)
+        .attr("height", h)
+        .call(zoom);
 
   }
 
@@ -137,6 +135,7 @@ const graph = (graphData) => {
       const t = d3.event.transform;
       var newXScale = t.rescaleX(xScale);
       var newYScale = t.rescaleY(yScale);
+      console.log(xScale);
       //rescale x values and redraw the x axis then append the
       // x axis to the graph. Same for y axis
       appendedXAxis.call(xAxis.scale(newXScale));
@@ -151,7 +150,6 @@ const graph = (graphData) => {
       mainG.selectAll(".line")
           .attr("d", newWaveLine);
         
-        console.log(zoom);
       
       // TO DO
       // fetch for the zoomed portion of the data

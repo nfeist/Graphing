@@ -4,8 +4,39 @@ import pandas as pd
 
 app = Flask(__name__)
 
-df = pd.read_csv('timeData.csv')
-chart_data = df.to_dict(orient='records')
+# open the file
+df = pd.read_csv('data/million.csv')
+# chart_data = df.to_dict(orient='records')
+list_data = df.to_dict(orient='list')
+min = 0
+# must do the len of the xValue because there is only
+# two attributes so inorder to get the number of indexs you
+# need to len of the one of the attributes
+max = len(list_data['xValue'])
+# data = json.dumps(chart_data)
+
+d = { 'xValue' : [],'yValue': []}
+# df2 = pd.DataFrame(data=d)
+# newchart = df2.to_dict(orient='records')
+# data = json.dumps(newchart)
+# data = 0
+# print(newchart)
+sampling = 10
+
+sampleSize=1
+while sampleSize < (max-min):
+    sampleSize *= 10
+sampling = sampleSize/1000
+if sampling < 1:
+    sampling = 1
+i = 0
+while i < max:
+    if i % sampling == 0:
+        d['xValue'].append(list_data['xValue'][i])
+        d['yValue'].append(list_data['yValue'][i])
+    i = i + 1
+df2 = pd.DataFrame(data=d) 
+chart_data = df2.to_dict(orient='records')
 data = json.dumps(chart_data)
 
 @app.route('/')
