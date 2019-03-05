@@ -1,13 +1,13 @@
 
 
 fetch('http://localhost:5000/data')
-.then((resp) => {
-  return resp.json()
-})
-.then( (data) => {
-    data = JSON.parse(data)
-    graph(data)
-})
+  .then((resp) => {
+    return resp.json()
+  })
+  .then( (data) => {
+      data = JSON.parse(data)
+      graph(data)
+  })
 
 
 var margin,
@@ -22,6 +22,11 @@ const graph = (graphData) => {
   
   // select svg that will have graph. 
   waveGraph = d3.select('#waveGraph');
+
+  // removing everthing from the graph
+  // will allow us to redraw it when we zoom
+  waveGraph.selectAll('*').remove();
+
   // reset button. On click call resetted
   // which will revert back to orginal graph. 
   resetBtn = d3.select('#resetBtn')
@@ -135,7 +140,8 @@ const graph = (graphData) => {
       const t = d3.event.transform;
       var newXScale = t.rescaleX(xScale);
       var newYScale = t.rescaleY(yScale);
-      console.log(xScale);
+      console.log('new x scale')
+      console.log(Math.min(newXScale));
       //rescale x values and redraw the x axis then append the
       // x axis to the graph. Same for y axis
       appendedXAxis.call(xAxis.scale(newXScale));
@@ -149,19 +155,29 @@ const graph = (graphData) => {
 
       mainG.selectAll(".line")
           .attr("d", newWaveLine);
-        
-      
-      // TO DO
-      // fetch for the zoomed portion of the data
 
-      // fetch('/data?x=t.x&y=t.y&k=t.k' )
-          // .then()
-          // .then(
-          //     // replot with updated data
-          // )
+      console.log('panned?')
+        
+      // var zoomReq = new Request(
+      //   'http://localhost:5000/zoom_data',
+      //   {method: 'POST'
+      //    body: JSON.stringify({
+
+      //    })}
+
+      // var zoomReq = 'http://localhost:5000/zoom_data';
+      // // TO DO
+      // // fetch for the zoomed portion of the data
+      // fetch(zoomReq)
+      //   .then( (resp) => { 
+      //     return resp.json()
+      //   })
+      //   .then( (newdata) => {
+      //     newdata = JSON.parse(newdata)
+      //     graph(newdata)
+      //   })
       
   }
-
      
   
   // this resets the graph to the normal size. By zooming out on the 
