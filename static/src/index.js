@@ -136,47 +136,57 @@ const graph = (graphData) => {
   // first time we draw the graph!
   draw(graphData);
 
+  var prevZoomLevel = 0;
   function zoomed() {
-      const t = d3.event.transform;
-      var newXScale = t.rescaleX(xScale);
-      var newYScale = t.rescaleY(yScale);
-      console.log('new x scale')
-      console.log(Math.min(newXScale));
-      //rescale x values and redraw the x axis then append the
-      // x axis to the graph. Same for y axis
-      appendedXAxis.call(xAxis.scale(newXScale));
-      appendedYAxis.call(yAxis.scale(newYScale));
-      
+
+    const t = d3.event.transform;
+    const zoomLevel = d3.event.transform.k;
+    var newXScale = t.rescaleX(xScale);
+    var newYScale = t.rescaleY(yScale);
+    //rescale x values and redraw the x axis then append the
+    // x axis to the graph. Same for y axis
+    appendedXAxis.call(xAxis.scale(newXScale));
+    appendedYAxis.call(yAxis.scale(newYScale));
+
+    var xmin = Math.floor(newXScale.domain()[0]);
+    var xmax = Math.ceil(newXScale.domain()[1]);
+
+    var zoomReq = 'http://localhost:5000/zoom_data?x_min='+xmin+'&x_max='+xmax;
+    // if zoom level changed we need to get more 
+    // or less accurate data
+    if(zoomLevel != prevZoomLevel) {
+      // fetch for the zoomed portion of the data
+      fetch(zoomReq)
+        .then( (resp) => { 
+          return resp.json()
+        })
+        .then((newdata) => {
+          newdata = JSON.parse(newdata)
+          //graph(newdata)
+          const newWaveLine = d3.line()
+            .curve(d3.curveMonotoneX)
+            .x((d) => {return newXScale(d.xValue)})
+            .y((d) => {return newYScale(d.yValue)});
+  
+          mainG.selectAll(".line")
+            .attr("d", newWaveLine)
+        })
+    }
+    // if this is a pann event then we aren't zooming and 
+    // don't need to fetch more accurate data. 
+    else{
+      console.log('went into the else')
       const newWaveLine = d3.line()
-          .curve(d3.curveMonotoneX)
-          .x((d) => {return newXScale(d.xValue);})
-          .y((d) => {return newYScale(d.yValue);});
-      
-
-      mainG.selectAll(".line")
-          .attr("d", newWaveLine);
-
-      console.log('panned?')
-        
-      // var zoomReq = new Request(
-      //   'http://localhost:5000/zoom_data',
-      //   {method: 'POST'
-      //    body: JSON.stringify({
-
-      //    })}
-
-      // var zoomReq = 'http://localhost:5000/zoom_data';
-      // // TO DO
-      // // fetch for the zoomed portion of the data
-      // fetch(zoomReq)
-      //   .then( (resp) => { 
-      //     return resp.json()
-      //   })
-      //   .then( (newdata) => {
-      //     newdata = JSON.parse(newdata)
-      //     graph(newdata)
-      //   })
-      
+            .curve(d3.curveMonotoneX)
+            .x((d) => {return newXScale(d.xValue)})
+            .y((d) => {return newYScale(d.yValue)});
+  
+          mainG.selectAll(".line")
+            .attr("d", newWaveLine)
+    }
+      console.log('zoom now ',zoomLevel);
+      console.log('prev level zoom ',prevZoomLevel);
+      prevZoomLevel = zoomLevel;
   }
      
   

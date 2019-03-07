@@ -28,67 +28,35 @@ def getData():
     # k = request.args.get("k") # zoom level
     
     # calculate what points to return..
-    # d = { 'xValue' : [],'yValue': []}
-    # sampling = 10
-    # print('in data function')
-    # sampleSize = 1
-    # while sampleSize < data_length:
-    #     sampleSize *= 10
-    #     sampling = sampleSize/10000
-    #     print(sampling)
-    # if sampling < 1:
-    #     sampling = 1
-    # # if(data_length > 100000):
-    # #     sampling = 100
-    # # if(data_length > 1000000):
-    # #     sampling = 1000
-    # i = 0
-    # while i < data_length:
-    #     if i % sampling == 0:
-    #         d['xValue'].append(list_data['xValue'][i])
-    #         d['yValue'].append(list_data['yValue'][i])
-    #     i = i + 1
-    # df2 = pd.DataFrame(data=d) 
-    # chart_data = df2.to_dict(orient='records')
-    # data = json.dumps(chart_data)
     data = create_dataset(data_length)
 
     return jsonify(data)
 
 @app.route('/zoom_data')
 def zoom_data():
-    print('\nin zoom data function\n')
-    # zoom_d = { 'xValue' : [],'yValue': []}
-    # # new sample size with be the size of our length domain
-    # sampleSize = x_max - x_min
-    # if sampleSize > 100000:
-    #     sample = 100
-    # elif sampleSize > 1000000:
-    #     sample = 1000
-    # else:
-    #     sample = 1
-    # i = x_min
-    # while i <= x_max:
-    #     if(i % sample == 0):
-    #         zoom_d['xValue'].append(list_data['xValue'][i])
-    #         zoom_d['yValue'].append(list_data['yValue'][i])
-    #     i = i + 1
-    # create a new data set to create a chart 
-    # from in index.js
-    # df2 = pd.DataFrame(data = zoom_d)
-    # chart_data = df2.to_dict(orient ='records')
-    # data = json.dumps(chart_data)
+    print('\nin zoom data function python\n')
+
+    x_min = int(request.args.get('x_min'))
+    x_max = int(request.args.get('x_max'))
+
+    # create a new data set with more accurate data 
+    data = create_dataset(x_max - x_min)
 
     return jsonify(data)
 
+
+# creates data sets that will be used
+# in the json for graphing
 def create_dataset(sampleSize):
 
     d = { 'xValue' : [],'yValue': []}
 
-    if(sampleSize > 100000):
-        sampling = 100
-    elif (sampleSize > 1000000):
+    if(sampleSize > 1000000):
         sampling = 1000
+    elif (sampleSize > 10000):
+        sampling = 100
+    elif (sampleSize > 1000):
+        sampling = 10
     else :
         sampling = 1
     i = 0
