@@ -77,66 +77,67 @@ const graph = (graphData) => {
   
   // draw the graph.
   function draw(data) {
-      // to get the domain lets loop though and add all values to the data.
-      data.forEach(function(d) {
-          d.yValue = +d.yValue;
-          d.xValue = +d.xValue;
-      });
-      // set domain to be max and mins of values.
-      xScale.domain([d3.min(data,(d)=> {
-          return Math.min(d.xValue);
-      }),
-      d3.max(data, (d) => {
-          return Math.max(d.xValue)+ 1;
-        })
-      ]);
-      yScale.domain([d3.min(graphData, (d) => {
-          // take the lower of the lower value
-          return Math.min(d.yValue) - 1;
-      }),
-      d3.max(graphData, (d) => {
-          // take the higher of the higher value
-          return Math.max(d.yValue) + 1;
-        })
-      ]);
+    // to get the domain lets loop though and add all values to the data.
+    data.forEach(function(d) {
+        d.yValue = +d.yValue;
+        d.xValue = +d.xValue;
+    });
+    // set domain to be max and mins of values.
+    xScale.domain([d3.min(data,(d)=> {
+        return Math.min(d.xValue);
+    }),
+    d3.max(data, (d) => {
+        return Math.max(d.xValue)+ 1;
+      })
+    ]);
+    yScale.domain([d3.min(graphData, (d) => {
+        // take the lower of the lower value
+        return Math.min(d.yValue) - 1;
+    }),
+    d3.max(graphData, (d) => {
+        // take the higher of the higher value
+        return Math.max(d.yValue) + 1;
+      })
+    ]);
 
 
-      // draw the wave line onto the graph
-      mainG.append("path")
-          .datum(data)
-          .attr("class", "line")
-          .style('fill','none')
-          .style('stroke','purple')
-          .style('stroke-width', '1px')
-          .attr("d", WaveLine(data));
+    // draw the wave line onto the graph
+    mainG.append("path")
+        .datum(data)
+        .attr("class", "line")
+        .style('fill','none')
+        .style('stroke','purple')
+        .style('stroke-width', '1px')
+        .attr("d", WaveLine(data));
 
 
-      // add y axis 
-      appendedYAxis = mainG.append('g')
-        .attr('class', 'axis axis--y')
-        .call(yAxis);
+    // add y axis 
+    appendedYAxis = mainG.append('g')
+      .attr('class', 'axis axis--y')
+      .call(yAxis);
 
-      // add x axis
-      appendedXAxis = mainG.append('g')
-        .attr('class', 'axis axis--x')
-        .attr("transform", "translate(0," + h + ")")
-        .call(xAxis);
+    // add x axis
+    appendedXAxis = mainG.append('g')
+      .attr('class', 'axis axis--x')
+      .attr("transform", "translate(0," + h + ")")
+      .call(xAxis);
 
 
-      waveGraph.append("g")
-        .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
-        .append("rect")
-        .attr("class", "zoom")
-        .attr("width", w)
-        .attr("height", h)
-        .call(zoom);
+    waveGraph.append("g")
+      .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
+      .append("rect")
+      .attr("class", "zoom")
+      .attr("width", w)
+      .attr("height", h)
+      .call(zoom);
 
   }
 
   // first time we draw the graph!
   draw(graphData);
 
-  var prevZoomLevel = 0;
+  var prevXMin = 0;
+  var prevXMax = 0;
   function zoomed() {
 
     const t = d3.event.transform;
@@ -151,10 +152,11 @@ const graph = (graphData) => {
     var xmin = Math.floor(newXScale.domain()[0]);
     var xmax = Math.ceil(newXScale.domain()[1]);
 
-    var zoomReq = 'http://localhost:5000/zoom_data?x_min='+xmin+'&x_max='+xmax;
+    var zoomReq = 'http://localhost:5000/zoom_data?x_min='
+      +xmin+'&x_max='+xmax+'&zoom_level='+zoomLevel;
     // if zoom level changed we need to get more 
     // or less accurate data
-    if(zoomLevel != prevZoomLevel) {
+    //if(xmin != prevXMin && xmax != prevXMax) {
       // fetch for the zoomed portion of the data
       fetch(zoomReq)
         .then( (resp) => { 
@@ -162,31 +164,26 @@ const graph = (graphData) => {
         })
         .then((newdata) => {
           newdata = JSON.parse(newdata)
-          //graph(newdata)
-          const newWaveLine = d3.line()
-            .curve(d3.curveMonotoneX)
-            .x((d) => {return newXScale(d.xValue)})
-            .y((d) => {return newYScale(d.yValue)});
-  
-          mainG.selectAll(".line")
-            .attr("d", newWaveLine)
+          function redraw(data) {
+            data.forEach(function(d) {
+              d.yValue = +d.yValue;
+              d.xValue = +d.xValue;
+            });
+
+            const newWaveLine = d3.line()
+              .curve(d3.curveMonotoneX)
+              .x((d) => {console.log('in wave new line:',d);return newXScale(d.xValue)})
+              .y((d) => {return newYScale(d.yValue)});
+
+            mainG.selectAll(".line")
+                .attr("d", newWaveLine(data))
+          }
+          console.log('data that should be graphed: ',newdata);
+          redraw(newdata);
         })
-    }
-    // if this is a pann event then we aren't zooming and 
-    // don't need to fetch more accurate data. 
-    else{
-      console.log('went into the else')
-      const newWaveLine = d3.line()
-            .curve(d3.curveMonotoneX)
-            .x((d) => {return newXScale(d.xValue)})
-            .y((d) => {return newYScale(d.yValue)});
-  
-          mainG.selectAll(".line")
-            .attr("d", newWaveLine)
-    }
-      console.log('zoom now ',zoomLevel);
-      console.log('prev level zoom ',prevZoomLevel);
-      prevZoomLevel = zoomLevel;
+    //}
+    // prevXMin = xmin;
+    // prevXMax = xmax;
   }
      
   
