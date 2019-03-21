@@ -172,13 +172,12 @@ const graph = (graphData) => {
 
             const newWaveLine = d3.line()
               .curve(d3.curveMonotoneX)
-              .x((d) => {console.log('in wave new line:',d);return newXScale(d.xValue)})
+              .x((d) => {return newXScale(d.xValue)})
               .y((d) => {return newYScale(d.yValue)});
 
             mainG.selectAll(".line")
                 .attr("d", newWaveLine(data))
           }
-          console.log('data that should be graphed: ',newdata);
           redraw(newdata);
         })
     //}
