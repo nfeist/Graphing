@@ -1,4 +1,45 @@
 
+function debounce(func, wait, immediate) {
+  var timeout;
+
+  // This is the function that is actually executed when
+  // the DOM event is triggered.
+  return function executedFunction() {
+    // Store the context of this and any
+    // parameters passed to executedFunction
+    var context = this;
+    var args = arguments;
+      
+    // The function to be called after 
+    // the debounce time has elapsed
+    var later = function() {
+      // null timeout to indicate the debounce ended
+      timeout = null;
+      
+      // Call function now if you did not on the leading end
+      if (!immediate) func.apply(context, args);
+    };
+
+    // Determine if you should call the function
+    // on the leading or trail end
+    var callNow = immediate && !timeout;
+  
+    // This will reset the waiting every function execution.
+    // This is the step that prevents the function from
+    // being executed because it will never reach the 
+    // inside of the previous setTimeout  
+    clearTimeout(timeout);
+  
+    // Restart the debounce waiting period.
+    // setTimeout returns a truthy value (it differs in web vs node)
+    timeout = setTimeout(later, wait);
+  
+    // Call immediately if you're dong a leading
+    // end execution
+    if (callNow) func.apply(context, args);
+  };
+};
+
 
 fetch('http://localhost:5000/data')
   .then((resp) => {
@@ -6,6 +47,9 @@ fetch('http://localhost:5000/data')
   })
   .then( (data) => {
       data = JSON.parse(data)
+      // data.lttb 
+      // data.min_max
+
       graph(data)
   })
 
@@ -24,7 +68,6 @@ const graph = (graphData) => {
   waveGraph = d3.select('#waveGraph');
 
   // removing everthing from the graph
-  // will allow us to redraw it when we zoom
   waveGraph.selectAll('*').remove();
 
   // reset button. On click call resetted
@@ -40,6 +83,9 @@ const graph = (graphData) => {
   // set range to be as width and high as graph. 
   xScale = d3.scaleLinear().range([0,w]);
   yScale = d3.scaleLinear().range([h,0]);
+
+  newXScale = xScale;
+  newYScale = yScale;
 
   // XAxis and YAxis ticks stuff
   xAxis = d3.axisBottom(xScale)
@@ -58,8 +104,8 @@ const graph = (graphData) => {
   // create the Wave line
   var WaveLine = d3.line()
   .curve(d3.curveMonotoneX) 
-  .x((d) => { return xScale(d.xValue);})
-  .y((d) => { return yScale(d.yValue);});
+  .x((d) => { return xScale(d[0]);})
+  .y((d) => { return yScale(d[1]);});
 
   
   
@@ -79,24 +125,24 @@ const graph = (graphData) => {
   function draw(data) {
     // to get the domain lets loop though and add all values to the data.
     data.forEach(function(d) {
-        d.yValue = +d.yValue;
-        d.xValue = +d.xValue;
+        d[1] = +d[1];
+        d[0] = +d[0];
     });
     // set domain to be max and mins of values.
     xScale.domain([d3.min(data,(d)=> {
-        return Math.min(d.xValue);
+        return Math.min(d[0]);
     }),
     d3.max(data, (d) => {
-        return Math.max(d.xValue)+ 1;
+        return Math.max(d[0])+ 1;
       })
     ]);
     yScale.domain([d3.min(graphData, (d) => {
         // take the lower of the lower value
-        return Math.min(d.yValue) - 1;
+        return Math.min(d[1]) - 1;
     }),
     d3.max(graphData, (d) => {
         // take the higher of the higher value
-        return Math.max(d.yValue) + 1;
+        return Math.max(d[1]) + 1;
       })
     ]);
 
@@ -136,14 +182,39 @@ const graph = (graphData) => {
   // first time we draw the graph!
   draw(graphData);
 
-  var prevXMin = 0;
-  var prevXMax = 0;
+  newdata = graphData;
+
+  function redraw(data) {
+    const newWaveLine = d3.line()
+      .curve(d3.curveMonotoneX)
+      .x((d) => {return newXScale(d[0])})
+      .y((d) => {return newYScale(d[1])});
+
+    mainG.selectAll(".line")
+        .attr("d", newWaveLine(data))
+  }
+
+  function fetchData(zoomReq) {  
+    // fetch for the zoomed portion of the data
+    fetch(zoomReq)
+      .then( (resp) => { 
+        return resp.json()
+      })
+      .then((nd) => {
+        newdata = JSON.parse(nd)
+        redraw(newdata);
+      })
+  }
+
+  // debounce the zoom function to help performance time
+  const debouncedDataFetch = debounce(fetchData, 50)
+
   function zoomed() {
 
     const t = d3.event.transform;
     const zoomLevel = d3.event.transform.k;
-    var newXScale = t.rescaleX(xScale);
-    var newYScale = t.rescaleY(yScale);
+    newXScale = t.rescaleX(xScale);
+    newYScale = t.rescaleY(yScale);
     //rescale x values and redraw the x axis then append the
     // x axis to the graph. Same for y axis
     appendedXAxis.call(xAxis.scale(newXScale));
@@ -152,37 +223,19 @@ const graph = (graphData) => {
     var xmin = Math.floor(newXScale.domain()[0]);
     var xmax = Math.ceil(newXScale.domain()[1]);
 
-    var zoomReq = 'http://localhost:5000/zoom_data?x_min='
-      +xmin+'&x_max='+xmax+'&zoom_level='+zoomLevel;
-    // if zoom level changed we need to get more 
-    // or less accurate data
-    //if(xmin != prevXMin && xmax != prevXMax) {
-      // fetch for the zoomed portion of the data
-      fetch(zoomReq)
-        .then( (resp) => { 
-          return resp.json()
-        })
-        .then((newdata) => {
-          newdata = JSON.parse(newdata)
-          function redraw(data) {
-            data.forEach(function(d) {
-              d.yValue = +d.yValue;
-              d.xValue = +d.xValue;
-            });
+    const newWaveLine = d3.line()
+      .curve(d3.curveMonotoneX)
+      .x((d) => {return newXScale(d[0])})
+      .y((d) => {return newYScale(d[1])});
 
-            const newWaveLine = d3.line()
-              .curve(d3.curveMonotoneX)
-              .x((d) => {return newXScale(d.xValue)})
-              .y((d) => {return newYScale(d.yValue)});
+    mainG.selectAll(".line")
+      .attr("d", newWaveLine(newdata))
 
-            mainG.selectAll(".line")
-                .attr("d", newWaveLine(data))
-          }
-          redraw(newdata);
-        })
-    //}
-    // prevXMin = xmin;
-    // prevXMax = xmax;
+    var zoomReq = 'http://localhost:5000/zoom_data?width='
+      +w+'&zoom_level='+zoomLevel+'&x_min='+xmin+'&x_max='+xmax;
+
+    // fetch for the zoomed portion of the data
+    debouncedDataFetch(zoomReq)
   }
      
   

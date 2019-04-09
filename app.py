@@ -6,14 +6,14 @@ import math
 app = Flask(__name__)
 
 # open the file
-df = pd.read_csv('data/ten.csv')
-list_data = df.to_dict(orient='list')
-min = 0
+df = pd.read_csv('data/hundredthousand.csv')
+dict_data = df.to_dict(orient='split')
 # must do the len of the xValue because there is only
 # two attributes so inorder to get the number of indexes you
 # need to len of the one of the attributes
-max = len(list_data['xValue'])
-data_length = data = len(list_data['xValue'])
+data_length = data = len(dict_data['data'])
+all_data = list(dict_data['data'])
+
 
 @app.route('/')
 def index():
@@ -21,130 +21,173 @@ def index():
 
 @app.route('/data')
 def getData():
-    # This is the initial time we make the graph. Our xMin will
-    # alway be the first index in x Value of the data. Our xMax
-    # will be the last index in x Value of the data. 
-    data = create_dataset(data_length - 1, list_data['xValue'][0], list_data['xValue'][data_length - 1])
+    # This is the initial time we make the graph
+    data = create_dataset(all_data,480,960)
     return jsonify(data)
 
 @app.route('/zoom_data')
 def zoom_data():
     # getting the fetched in data that is passed in when
     # the /zoom_data is called on the server side. 
-    x_min = int(request.args.get('x_min')) # x min of range
-    x_max = math.ceil(float(request.args.get('x_max'))) # x max of range
     zoom_level = float(request.args.get('zoom_level')) 
+    width = int(request.args.get('width'))
+    x_min = int(request.args.get('x_min'))
+    x_max = int(request.args.get('x_max'))
+    # we want to down sample more detail of a subset of all data
+    subset_data = all_data[x_min : (x_max + 1)]
 
-    # off by one error so add 1 unless x range is our data length.
-    Xrange = x_max - x_min + 1
-    # preventing trying to access index bigger than or equal to our data length 
-    if Xrange >= data_length:
-        Xrange = data_length - 1
+    data = create_dataset(subset_data, 480, 960)
 
-    if x_max >= data_length:
-        x_max = x_max - 1
-    data = create_dataset(Xrange, x_min, x_max)
+    # rtn = { 
+    #     "lttb": lttb_data,
+    #     "min_max": min_max_data, 
+    # }
+
+    # return jsonify(rtn)
+
     return jsonify(data)
 
 
 # creates data sets that will be used
 # in the json for graphing
-def create_dataset(sampleSize,x_min,x_max):
-
-    threshold = 1
-    if sampleSize > 999999:
-        threshold = 10000
-    elif sampleSize > 99999:
-        threshold = 1000
-    elif sampleSize > 9999:
-        threshold = 100
-    elif sampleSize > 999:
-        threshold = 10
-    else:
-        threshold
-    print('List type' ,type(list_data))
-    d = largest_triangle_three_bucket(list_data,threshold)
-    if isinstance(d, str):
-        return False
+def create_dataset(data,threshold,width):
+    # threshold = int((width / 12) * zoom_level)
+    # print('new threshold: ',threshold)
+    
+    # d = largest_triangle_three_bucket(data,threshold,0,1)
+    d = alternate_downsample_method(data,threshold,0,1)
+    # format data for json
     df2 = pd.DataFrame(data = d)
     chart_data = df2.to_dict(orient='records')
     data = json.dumps(chart_data)
   
     return data
 
+def alternate_downsample_method(data,threshold,x_property, y_property):
+    # length of data that needs to be downsampled
+    data_len = len(data)
 
-# class LttbException(Exception):
-#     pass
+    # if threshold is larger that the amount of data, return data
+    if (threshold >= data_len):
+        return data
+    
+    # bucket size. subtract two, must include first and last
+    p = (data_len - 2) / (threshold - 2)
 
-def largest_triangle_three_bucket(data,threshold):
-    # Check if data and threshold are valid
-    if not isinstance(data,list):
-        return print("data is not a list")
-    if not isinstance(threshold, int) or threshold <= 2 or threshold >= len(data):
-        return print("threshold not well defined")
-    for i in data:
-        if not isinstance(i, (list,tuple)) or len(i) != 2:
-            return print("data points are not lists or tuples")
+    
+    # adding first point. 
+    sampled = [data[0]]
 
-    # Bucket size. Leave room for start and end data points
-    # because first and last bucket will only contant the first and last
-    # data points
-    every = (len(data) - 2) / (threshold - 2)
+    for i in range(0,threshold - 2):
+        # range for the current bucket
+        r_offs = int(math.floor((i + 0) * p) + 1)
+        r_to = int(math.floor((i + 1) * p) + 1)
+        print('range off',r_offs,'range to', r_to)
 
-    a = 0 # letting a be the first point in the triangle
-    next_a = 0
+        # assume first value in range has the max/min tuple 
+        max_tuple = data[r_offs]
+        min_tuple = data[r_offs]
+        y_max = -1
+        y_min = data[r_offs][y_property]
+
+
+        while r_offs < r_to:
+            r_y = data[r_offs][y_property]
+            if r_y > y_max:
+                y_max = r_y
+                max_tuple = data[r_offs]
+
+            if r_y < y_min:
+                y_min = r_y
+                min_tuple = data[r_offs]
+                
+            r_offs += 1
+
+        if min_tuple[x_property] < max_tuple[x_property]:
+            sampled.append(min_tuple)
+            sampled.append(max_tuple)
+        elif min_tuple[x_property] == max_tuple[x_property]:
+            print('EQUAL')
+        else:
+            sampled.append(max_tuple)
+            sampled.append(min_tuple)
+
+    # sample length should be ((threshold - 2) * 2) + 2
+    sampled.append(data[data_len - 1])
+
+    return sampled
+
+def largest_triangle_three_bucket(data,threshold,x_property,y_property):
+    
+    # length of data that needs to be downsampled
+    data_len = len(data)
+
+    if (threshold >= data_len):
+        # print("threshold not well defined")
+        return data
+    
+    # bucket size. subtract two, must include first and last
+    p = (data_len - 2) / (threshold - 2)
+    # first pt in triangle
+    a = 0
     max_area_point = (0,0)
+    next_a = 0
+    # adding first point. 
+    sampled = [data[0]]
 
-    sampled = [data[0]] # adding the first point. this will always be done
-
-    for i in range(0, threshold - 2):
-        # calculating point average for next bucket (containing c)
+    for i in range(0,threshold - 2):
+        # point avg for next bucket
         avg_x = 0
         avg_y = 0
-        avg_range_start = int(math.floor((i + 1) * every) + 1)
-        avg_range_end = int(math.floor((i + 1) * every) + 1)
-        avg_rang_end = avg_range_end if avg_range_end < len(data) else len(data)
+        avg_range_start = int(math.floor((i + 1) * p) + 1)
+        avg_range_end = int(math.floor((i + 2) * p) + 1)
+        avg_rang_end = avg_range_end if avg_range_end < data_len else data_len
 
         avg_range_length = avg_rang_end - avg_range_start
 
         while avg_range_start < avg_rang_end:
-            avg_x += data[avg_range_start][0]
-            avg_y += data[avg_range_start][1]
+            avg_x += data[avg_range_start][x_property]
+            avg_y += data[avg_range_start][y_property]
             avg_range_start += 1
-        
+
         avg_x /= avg_range_length
         avg_y /= avg_range_length
 
-        # get range for this bucket
-        range_offs = int(math.floor((i + 0) * every) + 1)
-        range_to = int(math.floor((i + 0) * every) + 1)
+        # range for the current bucket
+        r_offs = int(math.floor((i + 0) * p) + 1)
+        r_to = int(math.floor((i + 1) * p) + 1)
 
-        # point a
-        point_ax = data[a][0]
-        point_ay = data[a][1]
+        # pt a in the data 
+        point_ax = data[a][x_property]
+        point_ay = data[a][y_property]
 
-        while range_offs < range_to:
-            # calculating triangle area over three buckets
+        max_area = -1
+
+        while r_offs < r_to:
+            # triangle area of the three buckets 
             area = math.fabs(
-                (point_ax - avg_x) * (data[range_offs][0])
-                - (point_ax - data[range_offs][0])
+                (point_ax - avg_x)
+                * (data[r_offs][y_property] - point_ay)
+                - (point_ax - data[r_offs][x_property])
                 * (avg_y - point_ay)
             ) * 0.5
 
             if area > max_area:
                 max_area = area
-                max_area_point = data[range_offs]
-                next_a = range_offs # next a is this b
-            range_offs += 1
+                max_area_point = data[r_offs]
+                # next left most pt 'a' in next triangle is the 'b' point of cur triangle
+                next_a = r_offs
 
-        sampled.append(max_area_point) # pick this point from the bucket
-        a = next_a # this a is the next a (chosen b)
+            r_offs += 1
+        # use the point with the largest area in triangle
+        sampled.append(max_area_point)
+        a = next_a
 
-    # always add the last element of the data
-    sampled.append(data[len(data) - 1]) 
-    print('SAMPLED DATA: \n',sampled)
+    # adding last pt in the data
+    sampled.append(data[data_len - 1])
 
     return sampled
+    
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000, host='0.0.0.0')
